@@ -24,7 +24,7 @@ func NewScraper(logger *logrus.Logger) Scraper {
 }
 
 // ScrapeResults scrapes the results from onlineliga and takes user ids as input
-func (s *Scraper) ScrapeResults(userIDs []string) ([]string, error) {
+func (s *Scraper) ScrapeResults(userIDs []string) []string {
 	var results []string
 	for _, userID := range userIDs {
 		result, scrapeErr := s.ScrapeResult(userID)
