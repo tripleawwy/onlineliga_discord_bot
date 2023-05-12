@@ -69,34 +69,15 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	args := strings.Split(m.Content, " ")
 
 	if args[0] == prefix {
-
-		userId := args[1]
-		// Convert string to int
-
-		result, err := olScraper.ScrapeResult(userId)
-		if err != nil {
-			log.Fatalf("Error scraping result: %v", err)
+		userIDs := args[1:]
+		results, scrapeErr := olScraper.ScrapeResults(userIDs)
+		if scrapeErr != nil {
+			log.Printf("Error scraping results: %v", scrapeErr)
 		}
-		// Send the result as code block to the channel
-		_, _ = s.ChannelMessageSend(m.ChannelID, "```"+result+"```")
-
-	}
-
-	// If the message is "ping" reply with "Pong!"
-	if m.Content == "ping" {
-		_, _ = s.ChannelMessageSend(m.ChannelID, "Pong!")
-	}
-
-	// If the message is "pong" reply with "Ping!"
-	if m.Content == "pong" {
-		_, _ = s.ChannelMessageSend(m.ChannelID, "Ping!")
-	}
-
-	if m.Content == "555" {
-		_, _ = s.ChannelMessageSend(m.ChannelID, "Nase")
-	}
-
-	if m.Content == "Nase" {
-		_, _ = s.ChannelMessageSend(m.ChannelID, "555")
+		// Send a code block with the results separated by newlines.
+		_, err := s.ChannelMessageSend(m.ChannelID, "```\n"+strings.Join(results, "\n")+"\n```")
+		if err != nil {
+			log.Fatalf("Error sending message: %v", err)
+		}
 	}
 }
