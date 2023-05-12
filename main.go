@@ -1,30 +1,36 @@
 package main
 
 import (
-	"fmt"
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
+	"github.com/sirupsen/logrus"
 	"github.com/tripleawwy/onlineliga_discord_bot/internal/scraper"
-	"log"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 )
 
+// Set up global logger
+var logger = logrus.New()
+
 func main() {
+	logger.Level = logrus.InfoLevel
+	logger.Formatter = &logrus.TextFormatter{
+		FullTimestamp: true,
+	}
+
 	// Read Token from .env file
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
+		logger.WithError(err).Fatal("Error loading .env file")
 	}
 	token := os.Getenv("DISCO_BOT_TOKEN")
 
 	// Create a new Discord session using the provided bot token.
 	discord, err := discordgo.New("Bot " + string(token))
 	if err != nil {
-		// Log error
-		log.Fatalf("Error creating Discord session: %v", err)
+		logger.WithError(err).Fatal("Error creating Discord session")
 	}
 
 	// Register messageCreate as a callback for the messageCreate events.
@@ -33,12 +39,11 @@ func main() {
 	// Open a websocket connection to Discord and begin listening.
 	err = discord.Open()
 	if err != nil {
-		// Log error
-		log.Fatalf("Error opening Discord session: %v", err)
+		logger.WithError(err).Fatal("Error opening connection")
 	}
 
 	// Wait here until interrupted.
-	fmt.Println("Bot is now running. Press CTRL-C to exit.")
+	logger.Infoln("Bot is now running. Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt, os.Kill)
 	<-sc
@@ -46,16 +51,15 @@ func main() {
 	// Clean up resources.
 	err = discord.Close()
 	if err != nil {
-		log.Fatalf("Error closing Discord session: %v", err)
+		logger.WithError(err).Fatal("Error closing connection")
 	}
-
 }
 
 // This function will be called (due to AddHandler above) every time a new
 // message is created on any channel that the authenticated bot has access to.
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
-	olScraper := scraper.NewScraper()
+	olScraper := scraper.NewScraper(logger)
 	// Ignore all messages created by the bot itself
 	if m.Author.ID == s.State.User.ID {
 		return
@@ -70,14 +74,12 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	if args[0] == prefix {
 		userIDs := args[1:]
-		results, scrapeErr := olScraper.ScrapeResults(userIDs)
-		if scrapeErr != nil {
-			log.Printf("Error scraping results: %v", scrapeErr)
-		}
+		results := olScraper.ScrapeResults(userIDs)
 		// Send a code block with the results separated by newlines.
-		_, err := s.ChannelMessageSend(m.ChannelID, "```\n"+strings.Join(results, "\n")+"\n```")
-		if err != nil {
-			log.Fatalf("Error sending message: %v", err)
+		_, sendErr := s.ChannelMessageSend(m.ChannelID, "```\n"+strings.Join(results, "\n")+"\n```")
+		if sendErr != nil {
+			return
 		}
 	}
+	return
 }
