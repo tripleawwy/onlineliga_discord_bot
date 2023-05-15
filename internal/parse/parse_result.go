@@ -6,15 +6,27 @@ import (
 	"strings"
 )
 
-func Result(doc *goquery.Document) string {
-	var result string
+func Result(doc *goquery.Document) []string {
+	var result []string
 	// Search for only the first element with a class of "team-overview-current-match" and return the text
 	selection := doc.Find(".team-overview-matches").First()
-	result = parseResult(selection)
+	matchResult := parseResult(selection)
 	homeTeam, awayTeam := parseClubNames(selection)
 	league := parseLeague(doc)
 	leaguePosition := parseLeaguePosition(doc)
-	result = league + " " + leaguePosition + " " + homeTeam + " " + result + " " + awayTeam
+
+	// add all variables to result in this order: league, leaguePosition, homeTeam, matchResult, awayTeam
+	result = append(result, league)
+	result = append(result, leaguePosition)
+	result = append(result, homeTeam)
+	result = append(result, matchResult)
+	result = append(result, awayTeam)
+
+	//result = "\u001b[0;32m" + league + " " + leaguePosition + " " + homeTeam + " " + result + " " + awayTeam + "\u001b[0m"
+	//result = strings.Join([]string{league, leaguePosition, homeTeam, matchResult, awayTeam}, "\t")
+	// Prepend ANSI escape code for green color and append ANSI escape code for reset color
+	//result = strings.Join([]string{"\u001b[0;32m", result, "\u001b[0m"}, "")
+
 	return result
 }
 
@@ -31,6 +43,8 @@ func parseResult(selection *goquery.Selection) string {
 		result = strings.TrimSpace(result)
 		// Expected result is something like "0 : 1" but we want "0:1"
 		result = strings.ReplaceAll(result, " ", "")
+		// Prepend ANSI escape code for green color and append ANSI escape code for reset color
+		result = strings.Join([]string{"\u001b[0;32m", result, "\u001b[0m"}, "")
 	}
 	return result
 }
@@ -70,7 +84,7 @@ func parseLeague(doc *goquery.Document) string {
 
 // shortenLeagueName returns the short name of the league
 func shortenLeagueName(league string) string {
-	// The unshortened league name is something like "2. ONLINELIGA Nord 1"
+	// The not shortened league name is something like "2. ONLINELIGA Nord 1"
 	// We want to return the league level only "OL2"
 	// Split the string by whitespaces
 	words := strings.Split(league, " ")

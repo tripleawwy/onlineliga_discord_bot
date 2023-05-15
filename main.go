@@ -4,6 +4,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/joho/godotenv"
 	"github.com/sirupsen/logrus"
+	"github.com/tripleawwy/onlineliga_discord_bot/internal/formatutils"
 	"github.com/tripleawwy/onlineliga_discord_bot/internal/scraper"
 	"os"
 	"os/signal"
@@ -75,8 +76,10 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if args[0] == prefix {
 		userIDs := args[1:]
 		results := olScraper.ScrapeResults(userIDs)
-		// Send a code block with the results separated by newlines.
-		_, sendErr := s.ChannelMessageSend(m.ChannelID, "```\n"+strings.Join(results, "\n")+"\n```")
+		resultsAsTable := formatutils.ResultsToTable(results)
+		// Send the message to the channel in a code block with syntax highlighting.
+		_, sendErr := s.ChannelMessageSend(m.ChannelID, "```ansi\n"+resultsAsTable+"\n```")
+
 		if sendErr != nil {
 			return
 		}

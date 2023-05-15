@@ -24,8 +24,8 @@ func NewScraper(logger *logrus.Logger) Scraper {
 }
 
 // ScrapeResults scrapes the results from onlineliga and takes user ids as input
-func (s *Scraper) ScrapeResults(userIDs []string) []string {
-	var results []string
+func (s *Scraper) ScrapeResults(userIDs []string) [][]string {
+	var results [][]string
 	for _, userID := range userIDs {
 		result, scrapeErr := s.ScrapeResult(userID)
 		if scrapeErr != nil {
@@ -41,12 +41,12 @@ func (s *Scraper) ScrapeResults(userIDs []string) []string {
 }
 
 // ScrapeResult scrapes the results from onlineliga and takes a user id as input
-func (s *Scraper) ScrapeResult(userID string) (string, error) {
+func (s *Scraper) ScrapeResult(userID string) ([]string, error) {
 	overviewURL := "https://www.onlineliga.de/team/overview?userId=" + userID
 	s.logger.WithField("userID", userID).Debugf("URL is %s", overviewURL)
 	resp, err := s.client.Get(overviewURL)
 	if err != nil {
-		return "Requesting results for user " + userID + " failed", err
+		return nil, err
 	}
 	defer func(Body io.ReadCloser) {
 		ReadCloserError := Body.Close()
@@ -58,7 +58,7 @@ func (s *Scraper) ScrapeResult(userID string) (string, error) {
 
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
 	if err != nil {
-		return "Parsing results for user " + userID + " failed", err
+		return nil, err
 	}
 	s.logger.WithField("userID", userID).Debugf("Parsed document for user %s is %s", userID, doc.Text())
 	result := parse.Result(doc)
