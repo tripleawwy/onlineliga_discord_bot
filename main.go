@@ -77,8 +77,33 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		userIDs := args[1:]
 		results := olScraper.ScrapeResults(userIDs)
 		resultsAsTable := formatutils.ResultsToTable(results)
+		//imgErr := formatutils.ResultsToImage(resultsAsTable)
+		//if imgErr != nil {
+		//	logger.WithError(imgErr).Error("Error creating image")
+		//}
+		imageBuf, imageErr := formatutils.DrawTable(results)
+		if imageErr != nil {
+			logger.WithError(imageErr).Error("Error creating image")
+		}
+		// Read the image buffer into a reader
+		resultAsImage := strings.NewReader(string(imageBuf.Bytes()))
+
+		filePayload := discordgo.File{
+			Name:   "SPOILER_results.png",
+			Reader: resultAsImage,
+		}
+
 		// Send the message to the channel in a code block with syntax highlighting.
-		_, sendErr := s.ChannelMessageSend(m.ChannelID, "```ansi\n"+resultsAsTable+"\n```")
+		// And send the image as an attachment
+		// Mark the attachment as a spoiler
+		_, sendErr := s.ChannelMessageSendComplex(m.ChannelID, &discordgo.MessageSend{
+			Content: "||```ansi\n" + resultsAsTable + "\n```||",
+			Files: []*discordgo.File{
+				&filePayload,
+			},
+		})
+
+		//_, sendErr := s.ChannelMessageSend(m.ChannelID, "```ansi\n"+resultsAsTable+"\n```")
 
 		if sendErr != nil {
 			return
