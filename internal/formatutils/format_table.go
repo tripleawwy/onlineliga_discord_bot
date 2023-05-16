@@ -34,7 +34,7 @@ func ResultsToTable(results [][]string) string {
 	return tableString.String()
 }
 
-func DrawTable(table [][]string) (bytes.Buffer, error) {
+func ResultsToImage(table [][]string) (bytes.Buffer, error) {
 	// Get the number of rows and columns
 	numRows := len(table)
 	numCols := len(table[0])
