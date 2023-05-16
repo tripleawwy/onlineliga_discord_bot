@@ -33,14 +33,15 @@ func ResultsToTable(results [][]string) string {
 
 	return tableString.String()
 }
-
 func ResultsToImage(table [][]string) (bytes.Buffer, error) {
 	// Get the number of rows and columns
 	numRows := len(table)
 	numCols := len(table[0])
 
+	// Set the font size and margin
 	fontSize := 14.0
-	margin := fontSize * 2 // Margin added at the top
+	margin := fontSize * 2
+
 	// Calculate the width and height of the table based on the number of rows and columns
 	colWidth := 150.0
 	rowWidth := fontSize * 2
@@ -48,56 +49,81 @@ func ResultsToImage(table [][]string) (bytes.Buffer, error) {
 	height := float64(numRows*int(rowWidth)) + margin
 
 	// Create a new image with dark but not black background
-	dc := gg.NewContextForRGBA(image.NewRGBA(image.Rect(0, 0, int(width), int(height))))
-	dc.SetRGB(0.1, 0.1, 0.1)
-	dc.Clear()
+	dc := createNewContext(int(width), int(height))
 
-	// Set the font properties
-	//if err := dc.LoadFontFace("/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", fontSize); err != nil {
-	if err := dc.LoadFontFace("/home/bjoern/.local/share/fonts/Saja Typeworks/TrueType/Cascadia Code/Cascadia_Code_Bold.ttf", fontSize); err != nil {
-		panic(err)
+	// Load the font face
+	if err := loadFontFace(dc, fontSize); err != nil {
+		return bytes.Buffer{}, err
 	}
 
-	// Set the drawing color to black
-	//dc.SetRGB(0, 0, 0)
 	// Set the drawing color to white
 	dc.SetRGB(1, 1, 1)
 
 	// Write all strings from left to right for each row
-	for i := 0; i < numRows; i++ {
-		for j := 0; j < numCols; j++ {
-			// When to string is ANSI colored switch the color accordingly
-			if strings.Contains(table[i][j], "\u001B[0;32m") {
-				// Set the drawing color to green
-				dc.SetRGB(0, 1, 0)
-				// strip the ANSI color code (start and end)
-				table[i][j] = stripANSI(table[i][j])
-			} else if strings.Contains(table[i][j], "\u001B[0;31m") {
-				// Set the drawing color to red
-				dc.SetRGB(1, 0, 0)
-				// strip the ANSI color code (start and end)
-				table[i][j] = stripANSI(table[i][j])
-			} else if strings.Contains(table[i][j], "\u001B[0;33m") {
-				// Set the drawing color to yellow
-				dc.SetRGB(1, 1, 0)
-				// strip the ANSI color code (start and end)
-				table[i][j] = stripANSI(table[i][j])
-			} else {
-				// Set the drawing color to white
-				dc.SetRGB(1, 1, 1)
-			}
-			dc.DrawStringAnchored(table[i][j], float64(j*int(colWidth))+margin, float64(i*int(rowWidth))+margin, 0.5, 0.5)
-		}
-	}
+	writeStrings(dc, table, colWidth, rowWidth, margin)
 
 	// Encode the image to a buffer
 	buf := new(bytes.Buffer)
-	err := png.Encode(buf, dc.Image())
+	err := encodeToPNG(dc, buf)
 	if err != nil {
 		return *buf, err
 	}
 
 	return *buf, nil
+}
+
+func createNewContext(width, height int) *gg.Context {
+	dc := gg.NewContextForRGBA(image.NewRGBA(image.Rect(0, 0, width, height)))
+	dc.SetRGB(0.1, 0.1, 0.1)
+	dc.Clear()
+	return dc
+}
+
+func loadFontFace(dc *gg.Context, fontSize float64) error {
+	// Font file path
+	fontPath := "/home/bjoern/.local/share/fonts/Saja Typeworks/TrueType/Cascadia Code/Cascadia_Code_Bold.ttf"
+
+	if err := dc.LoadFontFace(fontPath, fontSize); err != nil {
+		return err
+	}
+	return nil
+}
+
+func writeStrings(dc *gg.Context, table [][]string, colWidth, rowWidth, margin float64) {
+	numRows := len(table)
+	numCols := len(table[0])
+
+	for i := 0; i < numRows; i++ {
+		for j := 0; j < numCols; j++ {
+			setDrawingColor(dc, table[i][j])
+			text := stripANSI(table[i][j])
+			dc.DrawStringAnchored(text, float64(j*int(colWidth))+margin, float64(i*int(rowWidth))+margin, 0.5, 0.5)
+		}
+	}
+}
+
+func setDrawingColor(dc *gg.Context, text string) {
+	if strings.Contains(text, "\u001B[0;32m") {
+		// Set the drawing color to green
+		dc.SetRGB(0, 1, 0)
+	} else if strings.Contains(text, "\u001B[0;31m") {
+		// Set the drawing color to red
+		dc.SetRGB(1, 0, 0)
+	} else if strings.Contains(text, "\u001B[0;33m") {
+		// Set the drawing color to yellow
+		dc.SetRGB(1, 1, 0)
+	} else {
+		// Set the drawing color to white
+		dc.SetRGB(1, 1, 1)
+	}
+}
+
+func encodeToPNG(dc *gg.Context, buf *bytes.Buffer) error {
+	err := png.Encode(buf, dc.Image())
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // strip the ANSI color code (start and end)

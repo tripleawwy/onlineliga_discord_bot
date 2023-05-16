@@ -4,39 +4,55 @@ import (
 	"encoding/json"
 	"github.com/PuerkitoBio/goquery"
 	"github.com/tripleawwy/onlineliga_discord_bot/internal/formatutils"
-	"log"
 	"strconv"
 	"strings"
 )
 
-func Result(doc *goquery.Document, userID string) []string {
+// Result parses the overview page of a user and returns the result of the last match
+func Result(doc *goquery.Document, userID string) ([]string, error) {
 	var result []string
 	// Search for only the first element with a class of "team-overview-current-matchHistory" and return the text
 	selection := doc.Find(".team-overview-matches").First()
-	matchResult := parseResult(selection)
-	homeTeam, awayTeam := parseClubNames(selection)
-	league := parseLeague(doc)
-	leaguePosition := parseLeaguePosition(doc)
-	matchState := determineMatchState(doc, userID)
+	if selection.Length() == 0 {
+		return nil, &ResultError{Msg: "No matches found"}
+	}
+
+	matchResult, resultErr := parseResult(selection)
+	if resultErr != nil {
+		return nil, resultErr
+	}
+	homeTeam, awayTeam, clubNameErr := parseClubNames(selection)
+	if clubNameErr != nil {
+		return nil, clubNameErr
+	}
+	league, leagueErr := parseLeague(doc)
+	if leagueErr != nil {
+		return nil, leagueErr
+	}
+	leaguePosition, leaguePosErr := parseLeaguePosition(doc)
+	if leaguePosErr != nil {
+		return nil, leaguePosErr
+	}
+	matchState, matchStateErr := parseMatchState(doc, userID)
+	if matchStateErr != nil {
+		return nil, matchStateErr
+	}
+
+	// Colour the match result by match state
 	matchResult = formatutils.ColourTextByState(matchResult, matchState)
 
-	// add all variables to result in this order: league, leaguePosition, homeTeam, matchResult, awayTeam
+	// Add all variables to result in this order: league, leaguePosition, homeTeam, matchResult, awayTeam
 	result = append(result, league)
 	result = append(result, leaguePosition)
 	result = append(result, homeTeam)
 	result = append(result, matchResult)
 	result = append(result, awayTeam)
 
-	//result = "\u001b[0;32m" + league + " " + leaguePosition + " " + homeTeam + " " + result + " " + awayTeam + "\u001b[0m"
-	//result = strings.Join([]string{league, leaguePosition, homeTeam, matchResult, awayTeam}, "\t")
-	// Prepend ANSI escape code for green color and append ANSI escape code for reset color
-	//result = strings.Join([]string{"\u001b[0;32m", result, "\u001b[0m"}, "")
-
-	return result
+	return result, nil
 }
 
 // parseResult parses the result from this match:
-func parseResult(selection *goquery.Selection) string {
+func parseResult(selection *goquery.Selection) (string, error) {
 	var result string
 	// Search for only the first element with a class of "team-overview-current-match" and return the text
 	selection = selection.Find(".team-overview-current-match").First()
@@ -46,45 +62,48 @@ func parseResult(selection *goquery.Selection) string {
 		// Get the text from the selection and strip all whitespaces
 		result = selection.Text()
 		result = strings.TrimSpace(result)
-		// Expected result is something like "0 : 1" but we want "0:1"
 		result = strings.ReplaceAll(result, " ", "")
-		// Prepend ANSI escape code for green color and append ANSI escape code for reset color
-		//result = strings.Join([]string{"\u001b[0;32m", result, "\u001b[0m"}, "")
+	} else {
+		// Create an error message and return it
+		err := &ResultError{Msg: "Error: No result found"}
+		return "", err
 	}
-	return result
+	return result, nil
 }
 
 // parseClubNames parses the club names from this match:
-func parseClubNames(selection *goquery.Selection) (homeTeam string, awayTeam string) {
+func parseClubNames(selection *goquery.Selection) (homeTeam string, awayTeam string, err error) {
 	// Get all elements with a class of "ol-team-name"
 	selection = selection.Find(".ol-team-name")
 	// This selection should contain two nodes, one for the home team and one for the away team
 	if selection.Length() != 2 {
-		log.Fatalf("Expected two teams, but got %d", selection.Length())
+		// Create an error message and return it
+		err = &ResultError{Msg: "Error: Expected two club names, got " + strconv.Itoa(selection.Length()) + " instead"}
+		return "", "", err
 	} else {
 		homeTeam = selection.First().Text()
-		// Strip whitespaces from the beginning and end of the string
 		homeTeam = strings.TrimSpace(homeTeam)
 
 		awayTeam = selection.Last().Text()
-		// Strip whitespaces from the beginning and end of the string
 		awayTeam = strings.TrimSpace(awayTeam)
-
-		log.Printf("Home team: %s, away team: %s", homeTeam, awayTeam)
 	}
-	return homeTeam, awayTeam
+	return homeTeam, awayTeam, nil
 }
 
 // parseLeague parses the league from this HTML:
-func parseLeague(doc *goquery.Document) string {
+func parseLeague(doc *goquery.Document) (string, error) {
 	// Search for only the first element with a class of "ol-tf-league" and return the text
 	selection := doc.Find(".ol-tf-league").First()
+	if selection.Length() == 0 {
+		err := &ResultError{Msg: "Error: No league found"}
+		return "", err
+	}
 	// Get the text from the first child of the selection and strip all whitespaces
 	league := selection.Children().First().Text()
 	league = strings.TrimSpace(league)
 	league = shortenLeagueName(league)
 
-	return league
+	return league, nil
 }
 
 // shortenLeagueName returns the short name of the league
@@ -103,14 +122,18 @@ func shortenLeagueName(league string) string {
 }
 
 // parseLeaguePosition parses the league position from this HTML:
-func parseLeaguePosition(doc *goquery.Document) string {
+func parseLeaguePosition(doc *goquery.Document) (string, error) {
 	// Search for all elements with a class of "ol-league-table" that have a child with a class of "ol-team-name ol-bold"
 	// and return the text of the first child with a class of "ol-table-number"
 	selection := doc.Find(".ol-league-table tr:has(.ol-team-name.ol-bold) .ol-table-number")
+	if selection.Length() == 0 {
+		err := &ResultError{Msg: "Error: No league position found"}
+		return "", err
+	}
 	leaguePosition := selection.Text()
 	leaguePosition = strings.TrimSpace(leaguePosition)
 	leaguePosition = formatLeaguePosition(leaguePosition)
-	return leaguePosition
+	return leaguePosition, nil
 }
 
 // formatLeaguePosition formats the league position
@@ -124,11 +147,47 @@ func formatLeaguePosition(leaguePosition string) string {
 	return leaguePosition
 }
 
+// parseMatchState determines the state of the last match (WIN, DRAW, LOSS)
+// based on the given user id
+func parseMatchState(doc *goquery.Document, userID string) (string, error) {
+	// Get the match history
+	matchHistory, matchHistoryErr := parseMatchHistory(doc)
+	if matchHistoryErr != nil {
+		return "", matchHistoryErr
+	}
+	// Get the last match
+	match := matchHistory[len(matchHistory)-1]
+	// The winner is the player with the most goals
+	// Get the goals of the player
+	goalsPlayer1 := match["goals_player1"].(float64)
+	goalsPlayer2 := match["goals_player2"].(float64)
+	// Determine the winner
+	var winner string
+	if goalsPlayer1 > goalsPlayer2 {
+		winnerId := match["player1"].(float64)
+		// Convert the winner id to a string
+		winner = strconv.FormatFloat(winnerId, 'f', 0, 64)
+
+	} else if goalsPlayer1 < goalsPlayer2 {
+		winnerId := match["player2"].(float64)
+		// Convert the winner id to a string
+		winner = strconv.FormatFloat(winnerId, 'f', 0, 64)
+	} else {
+		winner = "no winner"
+	}
+
+	return determineState(winner, userID), nil
+}
+
 // parseMatchHistory parses a script tag that contains the last 10 matches of a team and
 // a dictionary with the match data
-func parseMatchHistory(doc *goquery.Document) []map[string]interface{} {
+func parseMatchHistory(doc *goquery.Document) ([]map[string]interface{}, error) {
 	// Search for all script tags #olTeamOverviewContent > script:last-of-type
 	selection := doc.Find("#olTeamOverviewContent > script:last-of-type")
+	if selection.Length() == 0 {
+		err := &ResultError{Msg: "Error: No script tag found. Thus no match history found"}
+		return nil, err
+	}
 	// Get the text from the selection
 	script := selection.Text()
 	//$(document).ready(function()
@@ -148,42 +207,18 @@ func parseMatchHistory(doc *goquery.Document) []map[string]interface{} {
 	var matches []map[string]interface{}
 	err := json.Unmarshal([]byte(script), &matches)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	return matches
+	return matches, nil
 }
 
-// determineMatchState determines the state of the last match (WIN, DRAW, LOSS)
-// based on the given user id
-func determineMatchState(doc *goquery.Document, userID string) string {
-	// Get the match history
-	matchHistory := parseMatchHistory(doc)
-	// Get the last match
-	match := matchHistory[len(matchHistory)-1]
-	// The winner is the player with the most goals
-	// Get the goals of the player
-	goalsPlayer1 := match["goals_player1"].(float64)
-	goalsPlayer2 := match["goals_player2"].(float64)
-	// Determine the winner
-	var winner string
-	if goalsPlayer1 > goalsPlayer2 {
-		winnerId := match["player1"].(float64)
-		// Convert the winner id to a string
-		winner = strconv.FormatFloat(winnerId, 'f', 0, 64)
-
-	} else if goalsPlayer1 < goalsPlayer2 {
-		winnerId := match["player2"].(float64)
-		// Convert the winner id to a string
-		winner = strconv.FormatFloat(winnerId, 'f', 0, 64)
-	} else {
-		winner = "draw"
-	}
-
+// determineState determines the state of the last match (WIN, DRAW, LOSS)
+func determineState(winner string, userID string) string {
 	// Determine the state of the last match
 	var state string
 	if winner == userID {
 		state = "WIN"
-	} else if winner == "draw" {
+	} else if winner == "no winner" {
 		state = "DRAW"
 	} else {
 		state = "LOSS"

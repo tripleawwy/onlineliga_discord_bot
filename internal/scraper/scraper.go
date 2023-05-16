@@ -56,12 +56,18 @@ func (s *Scraper) ScrapeResult(userID string) ([]string, error) {
 		}
 	}(resp.Body)
 
+	// Parse the document
 	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	s.logger.WithField("userID", userID).Debugf("Parsed document for user %s is %s", userID, doc.Text())
 	if err != nil {
-		s.logger.WithField("userID", userID).Debugf("Parsed document for user %s is %s", userID, doc.Text())
 		return nil, err
 	}
-	result := parse.Result(doc, userID)
+
+	// Parse the result
+	result, parseErr := parse.Result(doc, userID)
+	if parseErr != nil {
+		return nil, parseErr
+	}
 
 	return result, err
 }
