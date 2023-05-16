@@ -30,9 +30,8 @@ func (s *Scraper) ScrapeResults(userIDs []string) [][]string {
 		result, scrapeErr := s.ScrapeResult(userID)
 		if scrapeErr != nil {
 			s.logger.WithError(scrapeErr).Errorf("Scraping results for user %s failed", userID)
-
-			// Stop scraping if there is an error for a user
-			break
+			// Continue with the next user
+			continue
 		}
 		s.logger.WithField("userID", userID).Infof("Result for user %s is %s", userID, result)
 		results = append(results, result)
