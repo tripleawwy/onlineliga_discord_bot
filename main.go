@@ -24,7 +24,8 @@ func main() {
 	// Read Token from .env file
 	err := godotenv.Load()
 	if err != nil {
-		logger.WithError(err).Fatal("Error loading .env file")
+		// If there is no .env file, we assume that the token is set as an environment variable
+		logger.WithError(err).Warnf("Error loading .env file")
 	}
 	token := os.Getenv("DISCO_BOT_TOKEN")
 

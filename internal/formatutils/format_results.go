@@ -6,6 +6,7 @@ import (
 	"github.com/olekukonko/tablewriter"
 	"image"
 	"image/png"
+	"os"
 	"strings"
 )
 
@@ -81,7 +82,7 @@ func createNewContext(width, height int) *gg.Context {
 
 func loadFontFace(dc *gg.Context, fontSize float64) error {
 	// Font file path
-	fontPath := "/home/bjoern/.local/share/fonts/Saja Typeworks/TrueType/Cascadia Code/Cascadia_Code_Bold.ttf"
+	fontPath := os.Getenv("FONT_PATH")
 
 	if err := dc.LoadFontFace(fontPath, fontSize); err != nil {
 		return err
