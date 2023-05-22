@@ -16,7 +16,7 @@ jobs:
       - name: Fetch deployments with SUCCESS status
         id: fetch_deployments
         run: |
-          query='query { project(id: \"$RAILWAY_PROJECT_ID\") { id name deployments { edges { node { id status } } } } }'
+          query="query { project(id: \\"\"$RAILWAY_PROJECT_ID\\"\") { id name deployments { edges { node { id status } } } } }"
           response=$(curl -s \
             --request POST \
             --url https://backboard.railway.app/graphql/v2 \
