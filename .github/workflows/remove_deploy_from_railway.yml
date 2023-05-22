@@ -16,7 +16,7 @@ jobs:
       - name: Fetch deployments with SUCCESS status
         id: fetch_deployments
         run: |
-          query="query { project(id: \\"\"$RAILWAY_PROJECT_ID\\"\") { id name deployments { edges { node { id status } } } } }"
+          query="query { project(id: \\"\"${{ env.RAILWAY_PROJECT_ID }}\\"\") { id name deployments { edges { node { id status } } } } }"
           echo "$query"
           response=$(curl -s \
             --request POST \
