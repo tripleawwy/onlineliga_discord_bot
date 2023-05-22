@@ -8,18 +8,33 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
+      - name: Prepare Ubuntu with cURL and jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl jq
 
-      - name: Use Node 18
-        uses: actions/setup-node@v3
-        with:
-          node-version: 18.x
+      - name: Fetch deployments with SUCCESS status
+        id: fetch_deployments
+        run: |
+          query='query{
+            project(id: "$RAILWAY_PROJECT_ID"){
+              id
+              name
+              deployments(){
+                edges{
+                  node{
+                    id
+                    status
+                  }
+                }
+              }
+            }
+          }'
+          response=$(curl -X POST
+            --url https://backboard.railway.app/graphql/v2
+            -H "Content-Type: application/json"
+            -H "Authorization: Bearer ${{ secrets.RAILWAY_TOKEN }}"
+            -d "{\"query\": \"$query\"}")
 
-      - name: Install Railway
-        run: npm i -g @railway/cli@3.0
-
-      - name: Remove deployment
-        run: railway down -y
-        env:
-          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+          deployment_ids=$(echo $response | jq -r '.data.project.deployments.edges[] | select(.node.status == "SUCCESS") | .node.id')
+          echo "::set-output name=deployment_ids::$deployment_ids"
