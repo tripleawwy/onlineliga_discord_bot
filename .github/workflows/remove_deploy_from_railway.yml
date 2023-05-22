@@ -29,10 +29,11 @@ jobs:
           deployment_id=$(echo "$response" | jq -r '.data.project.deployments.edges[] | select(.node.status == "SUCCESS") | .node.id')
           echo "$deployment_id"
 
+          echo "DEPLOYMENT_ID=$deployment_id" >> $GITHUB_ENV
+
       - name: Remove deployment
-        if: ${{ steps.fetch_deployments.outputs.deployment_id != null }}
         run: |
-          query="mutation { deploymentRemove(id: \\"\"${{ steps.fetch_deployments.outputs.deployment_id }}\\"\\" }) }"
+          query="mutation { deploymentRemove(id: \\"\"${{ env.DEPLOYMENT_ID }}\\"\\" }) }"
           echo "$query"
           response=$(curl -s \
             --request POST \
