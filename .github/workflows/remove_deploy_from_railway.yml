@@ -16,24 +16,13 @@ jobs:
       - name: Fetch deployments with SUCCESS status
         id: fetch_deployments
         run: |
-          query='query{
-            project(id: "$RAILWAY_PROJECT_ID"){
-              id
-              name
-              deployments(){
-                edges{
-                  node{
-                    id
-                    status
-                  }
-                }
-              }
-            }
-          }'
-          response=$(curl -X POST \
+          query='query { project(id: \"$RAILWAY_PROJECT_ID\") { id name deployments { edges { node { id status } } } } }'
+          response=$(curl -s \
+            --request POST \
             --url https://backboard.railway.app/graphql/v2 \
-            -H "Content-Type: application/json" \
-            -H "Authorization: Bearer ${{ secrets.RAILWAY_PERSONAL_TOKEN }}" \
-            -d "{\"query\": \"$query\"}")
+            --header "Authorization: Bearer ${{ secrets.RAILWAY_PERSONAL_TOKEN }}" \
+            --header "Content-Type: application/json" \
+            --data "{\"query\":\"$query\"}")
 
-          echo "::set-output name=response::$response"
+          deployment_id=$(echo "$response" | jq -r '.data.project.deployments.edges[] | select(.node.status == "SUCCESS") | .node.id')
+          echo "$deployment_id"
