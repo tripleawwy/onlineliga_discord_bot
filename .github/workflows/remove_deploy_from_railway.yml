@@ -28,3 +28,16 @@ jobs:
 
           deployment_id=$(echo "$response" | jq -r '.data.project.deployments.edges[] | select(.node.status == "SUCCESS") | .node.id')
           echo "$deployment_id"
+
+      - name: Remove deployment
+        if: ${{ steps.fetch_deployments.outputs.deployment_id != null }}
+        run: |
+          query="mutation { deleteDeployment(input: { id: \\"\"${{ steps.fetch_deployments.outputs.deployment_id }}\\"\\" }) }"
+          echo "$query"
+          response=$(curl -s \
+            --request POST \
+            --url https://backboard.railway.app/graphql/v2 \
+            --header "Authorization: Bearer ${{ secrets.RAILWAY_PERSONAL_TOKEN }}" \
+            --header "Content-Type: application/json" \
+            --data "{\"query\":\"$query\"}")
+          echo "$response"
