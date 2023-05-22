@@ -77,9 +77,10 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if args[0] == prefix {
 		userIDs := args[1:]
 		results := olScraper.ScrapeResults(userIDs)
-		resultsAsTable := formatutils.ResultsToTable(results)
+		sortedResults := formatutils.SortResults(results, logger)
+		resultsAsTable := formatutils.ResultsToTable(sortedResults)
 
-		imageBuf, imageErr := formatutils.ResultsToImage(results)
+		imageBuf, imageErr := formatutils.ResultsToImage(sortedResults)
 		if imageErr != nil {
 			logger.WithError(imageErr).Error("Error creating image")
 		}
