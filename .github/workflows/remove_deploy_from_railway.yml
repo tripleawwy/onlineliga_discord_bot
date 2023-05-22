@@ -32,7 +32,7 @@ jobs:
       - name: Remove deployment
         if: ${{ steps.fetch_deployments.outputs.deployment_id != null }}
         run: |
-          query="mutation { deleteDeployment(input: { id: \\"\"${{ steps.fetch_deployments.outputs.deployment_id }}\\"\\" }) }"
+          query="mutation { deploymentRemove(id: \\"\"${{ steps.fetch_deployments.outputs.deployment_id }}\\"\\" }) }"
           echo "$query"
           response=$(curl -s \
             --request POST \
