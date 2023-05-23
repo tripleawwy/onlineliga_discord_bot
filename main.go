@@ -91,7 +91,7 @@ func main() {
 			logger.WithError(err).Errorf("Error registering commands for guild %s", guild.Name)
 		}
 	}
-	
+
 	// Wait here until interrupted.
 	logger.Infoln("Bot is now running. Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
@@ -122,9 +122,10 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// The rest of the words are the arguments.
 	args := strings.Split(m.Content, " ")
 
+	baseURL := getBaseURL(".de")
 	if args[0] == prefix {
 		userIDs := args[1:]
-		results := olScraper.ScrapeResults(userIDs)
+		results := olScraper.ScrapeResults(userIDs, baseURL)
 		sortedResults := formatutils.SortResults(results, logger)
 		resultsAsTable := formatutils.ResultsToTable(sortedResults)
 
@@ -162,18 +163,23 @@ func onInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		logger.Infof("Location: %s", location)
 		userIDs := strings.Split(i.ApplicationCommandData().Options[1].StringValue(), " ")
 
+		var content string
+		content = "```/results location: " + i.ApplicationCommandData().Options[0].StringValue() + " users: " + i.ApplicationCommandData().Options[1].StringValue() + "```"
+
 		// Send initial response
 		interactionErr := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: "here are the results:",
+				Content: "content",
 			},
 		})
 		if interactionErr != nil {
 			logger.WithError(interactionErr).Error("Error responding initially to interaction")
 		}
 
-		results := olScraper.ScrapeResults(userIDs)
+		baseURL := getBaseURL(location)
+
+		results := olScraper.ScrapeResults(userIDs, baseURL)
 		sortedResults := formatutils.SortResults(results, logger)
 
 		imageBuf, imageErr := formatutils.ResultsToImage(sortedResults)
@@ -188,11 +194,6 @@ func onInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Reader: resultAsImage,
 		}
 
-		var content string
-
-		content = "```/results location: " + i.ApplicationCommandData().Options[0].StringValue() + " users: " + i.ApplicationCommandData().Options[1].StringValue() + "```"
-		// Get the message content that was sent to the bot
-
 		_, interactionEditErr := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 			Content: &content,
 			Files: []*discordgo.File{
@@ -205,4 +206,19 @@ func onInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	}
 	return
+}
+
+func getBaseURL(location string) string {
+	switch location {
+	case ".de":
+		return "https://www.onlineliga.de"
+	case ".co.uk":
+		return "https://www.onlineleague.co.uk"
+	case ".at":
+		return "https://www.onlineliga.at"
+	case ".ch":
+		return "https://www.onlineliga.ch"
+	default:
+		return "https://www.onlineliga.de"
+	}
 }

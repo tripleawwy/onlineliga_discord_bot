@@ -7,12 +7,14 @@ import (
 	"github.com/tripleawwy/onlineliga_discord_bot/internal/parse"
 	"io"
 	"net/http"
+	"strings"
 )
 
 // Scraper is the interface for the scraper
 type Scraper struct {
 	client *http.Client
 	logger *logrus.Logger
+	url    string
 }
 
 // NewScraper returns a new Scraper
@@ -24,10 +26,10 @@ func NewScraper(logger *logrus.Logger) Scraper {
 }
 
 // ScrapeResults scrapes the results from onlineliga and takes user ids as input
-func (s *Scraper) ScrapeResults(userIDs []string) [][]string {
+func (s *Scraper) ScrapeResults(userIDs []string, baseURL string) [][]string {
 	var results [][]string
 	for _, userID := range userIDs {
-		result, scrapeErr := s.ScrapeResult(userID)
+		result, scrapeErr := s.ScrapeResult(userID, baseURL)
 		if scrapeErr != nil {
 			s.logger.WithError(scrapeErr).Errorf("Scraping results for user %s failed", userID)
 			// Continue with the next user
@@ -40,9 +42,9 @@ func (s *Scraper) ScrapeResults(userIDs []string) [][]string {
 }
 
 // ScrapeResult scrapes the results from onlineliga and takes a user id as input
-func (s *Scraper) ScrapeResult(userID string) ([]string, error) {
-	overviewURL := "https://www.onlineliga.de/team/overview?userId=" + userID
-	s.logger.WithField("userID", userID).Debugf("URL is %s", overviewURL)
+func (s *Scraper) ScrapeResult(userID string, baseURL string) ([]string, error) {
+	overviewURL := strings.Join([]string{baseURL, "/team/overview?userId=", userID}, "")
+	s.logger.WithField("userID", userID).Infof("URL is %s", overviewURL)
 	resp, err := s.client.Get(overviewURL)
 	if err != nil {
 		return nil, err
