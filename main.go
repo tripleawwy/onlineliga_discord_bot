@@ -36,13 +36,56 @@ func main() {
 	}
 
 	// Register messageCreate as a callback for the messageCreate events.
-	discord.AddHandler(messageCreate)
+	//discord.AddHandler(messageCreate)
+	discord.AddHandler(onInteractionCreate)
 
 	// Open a websocket connection to Discord and begin listening.
 	err = discord.Open()
 	if err != nil {
 		logger.WithError(err).Fatal("Error opening connection")
 	}
+
+	commands := []*discordgo.ApplicationCommand{
+		{
+			Name:        "results",
+			Description: "Get the results of a user",
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Type: discordgo.ApplicationCommandOptionString,
+					Name: "location",
+					Choices: []*discordgo.ApplicationCommandOptionChoice{
+						{
+							Name:  ".de",
+							Value: ".de",
+						},
+						{
+							Name:  ".co.uk",
+							Value: ".co.uk",
+						},
+						{
+							Name:  ".at",
+							Value: ".at",
+						},
+						{
+							Name:  ".ch",
+							Value: ".ch",
+						},
+					},
+					Description: "The location of the results",
+					Required:    true,
+				},
+				{
+					Type:        discordgo.ApplicationCommandOptionString,
+					Name:        "users",
+					Description: "The user ids to get the results for",
+					Required:    true,
+				},
+			},
+		},
+	}
+
+	// Bulk register the commands
+	_, err = discord.ApplicationCommandBulkOverwrite(discord.State.User.ID, "1105926429214003200", commands)
 
 	// Wait here until interrupted.
 	logger.Infoln("Bot is now running. Press CTRL-C to exit.")
@@ -99,11 +142,61 @@ func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				&filePayload,
 			},
 		})
-
-		//_, sendErr := s.ChannelMessageSend(m.ChannelID, "```ansi\n"+resultsAsTable+"\n```")
-
 		if sendErr != nil {
 			return
+		}
+	}
+	return
+}
+
+func onInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	olScraper := scraper.NewScraper(logger)
+
+	if i.ApplicationCommandData().Name == "results" {
+		location := i.ApplicationCommandData().Options[0].StringValue()
+		logger.Infof("Location: %s", location)
+		userIDs := strings.Split(i.ApplicationCommandData().Options[1].StringValue(), " ")
+
+		// Send initial response
+		interactionErr := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "here are the results:",
+			},
+		})
+		if interactionErr != nil {
+			logger.WithError(interactionErr).Error("Error responding initially to interaction")
+		}
+
+		results := olScraper.ScrapeResults(userIDs)
+		sortedResults := formatutils.SortResults(results, logger)
+
+		imageBuf, imageErr := formatutils.ResultsToImage(sortedResults)
+		if imageErr != nil {
+			logger.WithError(imageErr).Error("Error creating image")
+		}
+		// Read the image buffer into a reader
+		resultAsImage := strings.NewReader(string(imageBuf.Bytes()))
+
+		filePayload := discordgo.File{
+			Name:   "SPOILER_results.png",
+			Reader: resultAsImage,
+		}
+
+		var content string
+
+		content = "```/results location: " + i.ApplicationCommandData().Options[0].StringValue() + " users: " + i.ApplicationCommandData().Options[1].StringValue() + "```"
+		// Get the message content that was sent to the bot
+
+		_, interactionEditErr := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+			Content: &content,
+			Files: []*discordgo.File{
+				&filePayload,
+			},
+		})
+
+		if interactionEditErr != nil {
+			logger.WithError(interactionEditErr).Error("Error responding to interaction")
 		}
 	}
 	return
