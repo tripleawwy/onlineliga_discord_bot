@@ -110,15 +110,13 @@ func parseLeague(doc *goquery.Document) (string, error) {
 func shortenLeagueName(league string) string {
 	// The not shortened league name is something like "2. ONLINELIGA Nord 1"
 	// We want to return the league level only "OL2"
-	// Split the string by whitespaces
-	words := strings.Split(league, " ")
-	// The league level is the first word
-	leagueLevel := words[0]
-	// Remove the dot from the league level
-	leagueLevel = strings.ReplaceAll(leagueLevel, ".", "")
+	// Remove all non-numeric characters from the league name
+	league = formatutils.RemoveNonNumeric(league)
+	// Only use the first character of the league name
+	league = league[:1]
 	// Prepend "OL" to the league level
-	leagueLevel = "OL" + leagueLevel
-	return leagueLevel
+	league = "OL" + league
+	return league
 }
 
 // parseLeaguePosition parses the league position from this HTML:

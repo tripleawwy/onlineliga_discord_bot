@@ -135,3 +135,13 @@ func stripANSI(text string) string {
 	text = strings.ReplaceAll(text, "\u001B[0;33m", "")
 	return text
 }
+
+// RemoveNonNumeric removes all non numeric characters from a string
+func RemoveNonNumeric(text string) string {
+	return strings.Map(func(r rune) rune {
+		if r >= '0' && r <= '9' {
+			return r
+		}
+		return -1
+	}, text)
+}
