@@ -84,9 +84,14 @@ func main() {
 		},
 	}
 
-	// Bulk register the commands
-	_, err = discord.ApplicationCommandBulkOverwrite(discord.State.User.ID, "1105926429214003200", commands)
-
+	// Bulk register the commands for all guilds
+	for _, guild := range discord.State.Guilds {
+		_, err = discord.ApplicationCommandBulkOverwrite(discord.State.User.ID, guild.ID, commands)
+		if err != nil {
+			logger.WithError(err).Errorf("Error registering commands for guild %s", guild.Name)
+		}
+	}
+	
 	// Wait here until interrupted.
 	logger.Infoln("Bot is now running. Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
