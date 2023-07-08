@@ -1,9 +1,6 @@
 name: Deploy to Railway
 
 on:
-  # Schedule to run every day at 06:00 CET
-  schedule:
-    - cron: "0 4 * * *"
   workflow_dispatch:
 
 jobs:
