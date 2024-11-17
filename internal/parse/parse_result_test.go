@@ -1,30 +1,38 @@
 package parse_test
 
 import (
-	"github.com/PuerkitoBio/goquery"
 	"github.com/tripleawwy/onlineliga_discord_bot/internal/parse"
-	"strings"
+	"os"
 	"testing"
 )
 
 func TestResult(t *testing.T) {
-	html := `
-		<div class="team-overview-matches">
-			<div class="team-overview-current-match-result" onclick="olAnchorNavigation.load('/match', { season : 28, matchId : 8203 });">
-				<div class="team-overview-current-match">0 : 1
-					<div class="mobile-matchdaytable-halftime-result">( 0 : 0 )</div>
-				</div>
-			</div>
-		</div>
-	`
-	doc, err := goquery.NewDocumentFromReader(strings.NewReader(html))
+	// open file which is located in files path
+	path := "files/parse_test.json"
+	jsonData, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("Failed to parse HTML: %v", err)
+		t.Errorf("Failed to read file: %v", err)
 	}
 
-	expected := "0 : 1"
-	result := parse.Result(doc)
-	if result != expected {
-		t.Errorf("Unexpected result: expected %q, but got %q", expected, result)
+	userID := 8315
+	result, parseErr := parse.ResultObject(jsonData, userID)
+	if parseErr != nil {
+		t.Errorf("Failed to parse result: %v", parseErr)
 	}
+
+	expectedResult := parse.MatchResult{
+		LeagueLevel:    "OL1",
+		BadgeURL:       "https://bla.xyz/image/1.png",
+		LeaguePosition: "#11",
+		HomeTeam:       "Test A",
+		MatchResult:    "4 : 3",
+		MatchState:     "WIN",
+		AwayTeam:       "Test B",
+		Points:         "3 pts",
+	}
+
+	if result != expectedResult {
+		t.Errorf("Expected %v, got %v", expectedResult, result)
+	}
+
 }

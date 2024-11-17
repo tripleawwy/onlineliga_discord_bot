@@ -1,0 +1,39 @@
+{
+  "user": {
+    "uid": 8315,
+    "league": {
+      "level": 1
+    },
+    "badgeData": {
+      "url": "https://bla.xyz/image/1.png"
+    }
+  },
+  "matchData": {
+    "lastMatch": {
+      "matchId": 1878,
+      "leagueId": 1,
+      "matchday": 2,
+      "player1": 8315,
+      "player2": 7370,
+      "goals_player1": 4,
+      "goals_player2": 3,
+      "goals_first_half_user1": 0,
+      "goals_first_half_user2": 2,
+      "userA": {
+        "uid": 8315,
+        "teamName": "Test A"
+      },
+      "userB": {
+        "uid": 7370,
+        "teamName": "Test B"
+      }
+    }
+  },
+  "leagueTable": [
+    {
+      "userId": 8315,
+      "rank": 11,
+      "points": 3
+    }
+  ]
+}

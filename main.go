@@ -36,7 +36,6 @@ func main() {
 	}
 
 	// Register messageCreate as a callback for the messageCreate events.
-	//discord.AddHandler(messageCreate)
 	discord.AddHandler(onInteractionCreate)
 
 	// Open a websocket connection to Discord and begin listening.
@@ -105,56 +104,6 @@ func main() {
 	}
 }
 
-// This function will be called (due to AddHandler above) every time a new
-// message is created on any channel that the authenticated bot has access to.
-func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
-
-	olScraper := scraper.NewScraper(logger)
-	// Ignore all messages created by the bot itself
-	if m.Author.ID == s.State.User.ID {
-		return
-	}
-
-	const prefix = "!results"
-
-	// Split the message into a slice of words.
-	// We expect the first word to be the command name.
-	// The rest of the words are the arguments.
-	args := strings.Split(m.Content, " ")
-
-	baseURL := getBaseURL(".de")
-	if args[0] == prefix {
-		userIDs := args[1:]
-		results := olScraper.ScrapeResults(userIDs, baseURL)
-		sortedResults := formatutils.SortResults(results, logger)
-		resultsAsTable := formatutils.ResultsToTable(sortedResults)
-
-		imageBuf, imageErr := formatutils.ResultsToImage(sortedResults)
-		if imageErr != nil {
-			logger.WithError(imageErr).Error("Error creating image")
-		}
-		// Read the image buffer into a reader
-		resultAsImage := strings.NewReader(string(imageBuf.Bytes()))
-
-		filePayload := discordgo.File{
-			Name:   "SPOILER_results.png",
-			Reader: resultAsImage,
-		}
-
-		// Send the message to the channel in a code block with syntax highlighting.
-		_, sendErr := s.ChannelMessageSendComplex(m.ChannelID, &discordgo.MessageSend{
-			Content: "||```ansi\n" + resultsAsTable + "\n```||",
-			Files: []*discordgo.File{
-				&filePayload,
-			},
-		})
-		if sendErr != nil {
-			return
-		}
-	}
-	return
-}
-
 func onInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	olScraper := scraper.NewScraper(logger)
 
@@ -179,13 +128,23 @@ func onInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 		baseURL := getBaseURL(location)
 
-		results := olScraper.ScrapeResults(userIDs, baseURL)
-		sortedResults := formatutils.SortResults(results, logger)
-
-		imageBuf, imageErr := formatutils.ResultsToImage(sortedResults)
+		results := olScraper.ScrapeMatchResults(userIDs, baseURL)
+		results = formatutils.SortResults(results, logger)
+		imageBuf, imageErr := formatutils.MatchResultsToImage(results, formatutils.ImageConfig{
+			FontSize:    14.0,
+			Margin:      28.0,
+			ColWidth:    150.0,
+			RowHeight:   28.0,
+			BadeWidth:   22.0,
+			BadgeHeight: 22.0,
+			R:           1.0,
+			G:           1.0,
+			B:           1.0,
+		})
 		if imageErr != nil {
 			logger.WithError(imageErr).Error("Error creating image")
 		}
+
 		// Read the image buffer into a reader
 		resultAsImage := strings.NewReader(string(imageBuf.Bytes()))
 
