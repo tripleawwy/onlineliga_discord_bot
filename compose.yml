@@ -1,0 +1,6 @@
+services:
+  disco_bot:
+    build: .
+    environment:
+      - DISCO_BOT_TOKEN=${DISCO_BOT_TOKEN:?error}
+      - FONT_PATH=${FONT_PATH:?error}
