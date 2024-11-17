@@ -3,76 +3,169 @@ package formatutils
 import (
 	"bytes"
 	"github.com/fogleman/gg"
-	"github.com/olekukonko/tablewriter"
+	"github.com/tripleawwy/onlineliga_discord_bot/internal/parse"
 	"image"
 	"image/png"
+	"net/http"
 	"os"
 	"strings"
 )
 
-// ResultsToTable converts a slice of results to a table
-// From:
-// [
-//
-//	["OL5", "P1", "VfL Spessartschwalben", "1:1", "SG Glückauf Randersacker"],
-//	["OL2", "P8", "Seevetaler Jungs", "4:1", "SC Union 06"],
-//
-// ]
-// To:
-// +--------+----------+----------------------+--------+------------------------+
-// | League | Position |      Home Team       | Result |        Away Team       |
-// +--------+----------+----------------------+--------+------------------------+
-// |  OL5   |    P1    | VfL Spessartschwalben |  1:1   | SG Glückauf Randersacker |
-// |  OL2   |    P8    |   Seevetaler Jungs    |  4:1   |       SC Union 06     |
-// +--------+----------+----------------------+--------+------------------------+
-func ResultsToTable(results [][]string) string {
-	tableString := &strings.Builder{}
-	table := tablewriter.NewWriter(tableString)
-	table.SetHeader([]string{"League", "Position", "Home Team", "Result", "Away Team"})
-	table.AppendBulk(results)
-	table.Render()
-
-	return tableString.String()
+type ImageConfig struct {
+	FontSize    float64
+	Margin      float64
+	ColWidth    float64
+	RowHeight   float64
+	BadeWidth   float64
+	BadgeHeight float64
+	R           float64
+	G           float64
+	B           float64
 }
-func ResultsToImage(table [][]string) (bytes.Buffer, error) {
-	// Get the number of rows and columns
-	numRows := len(table)
-	numCols := len(table[0])
 
-	// Set the font size and margin
-	fontSize := 14.0
-	margin := fontSize * 2
-
-	// Calculate the width and height of the table based on the number of rows and columns
-	colWidth := 150.0
-	rowWidth := fontSize * 2
-	width := float64(numCols * int(colWidth))
-	height := float64(numRows*int(rowWidth)) + margin
-
-	// Create a new image with dark but not black background
+// MatchResultsToImage converts match results to an image
+func MatchResultsToImage(results []parse.MatchResult, config ImageConfig) (bytes.Buffer, error) {
+	width, height := calculateImageSize(results, config)
 	dc := createNewContext(int(width), int(height))
 
-	// Load the font face
-	if err := loadFontFace(dc, fontSize); err != nil {
+	if err := loadFontFace(dc, config.FontSize); err != nil {
 		return bytes.Buffer{}, err
 	}
 
-	// Set the drawing color to white
-	dc.SetRGB(1, 1, 1)
+	dc.SetRGB(config.R, config.G, config.B)
+	config.ColWidth = width / 7
 
-	// Write all strings from left to right for each row
-	writeStrings(dc, table, colWidth, rowWidth, margin)
-
-	// Encode the image to a buffer
-	buf := new(bytes.Buffer)
-	err := encodeToPNG(dc, buf)
-	if err != nil {
-		return *buf, err
+	for i, result := range results {
+		writeMatchResult(dc, result, config, i)
 	}
 
+	buf := new(bytes.Buffer)
+	if err := encodeToPNG(dc, buf); err != nil {
+		return *buf, err
+	}
 	return *buf, nil
 }
 
+// writeMatchResult writes a single match result to the image
+func writeMatchResult(dc *gg.Context, result parse.MatchResult, config ImageConfig, rowIndex int) {
+	fields := []string{
+		result.LeagueLevel,
+		result.BadgeURL,
+		result.LeaguePosition,
+		result.HomeTeam,
+		result.MatchResult,
+		result.AwayTeam,
+		result.Points,
+	}
+
+	for colIndex, field := range fields {
+		dc.SetRGB(config.R, config.G, config.B)
+		x := config.Margin/2 + config.ColWidth*float64(colIndex)
+		y := config.Margin + config.RowHeight*float64(rowIndex)
+
+		if colIndex == 0 {
+			// Place the text in the center of the column
+			x += config.ColWidth / 2
+		}
+		if colIndex == 4 {
+			setDrawingColor(dc, result.MatchState)
+		}
+
+		if isImageURL(field) {
+			drawBadge(dc, field, x, y, config)
+		} else {
+			dc.DrawStringAnchored(field, x, y, 0.5, 0.5)
+		}
+	}
+}
+
+// isImageURL checks if the field is a URL pointing to a PNG image
+func isImageURL(field string) bool {
+	return strings.HasPrefix(field, "http") && strings.HasSuffix(field, ".png")
+}
+
+// drawBadge downloads and draws the badge image
+func drawBadge(dc *gg.Context, url string, x, y float64, config ImageConfig) {
+	badgeImg, err := downloadImage(url)
+	if err != nil {
+		return
+	}
+	x += config.ColWidth * 1 / 4
+	y += -13
+	badgeImg = resizeImage(badgeImg, int(config.BadeWidth), int(config.BadgeHeight))
+	dc.DrawImage(badgeImg, int(x), int(y))
+}
+
+// setDrawingColor sets the drawing color based on the match state
+func setDrawingColor(dc *gg.Context, matchState string) {
+	switch matchState {
+	case "WIN":
+		dc.SetRGB(0, 1, 0)
+	case "LOSS":
+		dc.SetRGB(1, 0, 0)
+	case "DRAW":
+		dc.SetRGB(1, 1, 0)
+	default:
+		dc.SetRGB(1, 1, 1)
+	}
+}
+
+func calculateImageSize(results []parse.MatchResult, config ImageConfig) (float64, float64) {
+	numRows := len(results)
+	if numRows == 0 {
+		return 0, 0
+	}
+	width := calculateImageWidth(results, config)
+	height := config.RowHeight*float64(numRows) + config.Margin
+	return width, height
+}
+
+// calculateImageWidth calculates the width of each column based on the text width of the longest string in each column
+func calculateImageWidth(results []parse.MatchResult, config ImageConfig) float64 {
+	numColumns := 7 // Number of fields in MatchResult excluding MatchState
+	colWidths := make([]float64, numColumns)
+	for _, result := range results {
+		// Calculate the width of each column based on the text width of the longest string in each column
+		colWidths = calculateColumnWidth(result, config)
+	}
+
+	// Calculate the total width of the table
+	var totalWidth float64
+	for _, width := range colWidths {
+		totalWidth += width
+	}
+
+	return totalWidth
+}
+
+func calculateColumnWidth(result parse.MatchResult, config ImageConfig) []float64 {
+	fields := []string{
+		result.LeagueLevel,
+		result.LeaguePosition,
+		result.HomeTeam,
+		result.MatchResult,
+		result.AwayTeam,
+		result.Points,
+	}
+
+	colWidths := make([]float64, len(fields))
+	for i, field := range fields {
+		colWidths[i] = calculateTextWidth(field, config) + config.Margin
+	}
+	return colWidths
+}
+
+func calculateTextWidth(text string, config ImageConfig) float64 {
+	dc := gg.NewContext(1, 1)
+	err := dc.LoadFontFace(os.Getenv("FONT_PATH"), config.FontSize)
+	if err != nil {
+		return 0
+	}
+	width, _ := dc.MeasureString(text)
+	return width * 2
+}
+
+// createNewContext creates a new drawing context with a dark background
 func createNewContext(width, height int) *gg.Context {
 	dc := gg.NewContextForRGBA(image.NewRGBA(image.Rect(0, 0, width, height)))
 	dc.SetRGB(0.1, 0.1, 0.1)
@@ -80,68 +173,38 @@ func createNewContext(width, height int) *gg.Context {
 	return dc
 }
 
+// loadFontFace loads the font face for the drawing context
 func loadFontFace(dc *gg.Context, fontSize float64) error {
-	// Font file path
 	fontPath := os.Getenv("FONT_PATH")
-
-	if err := dc.LoadFontFace(fontPath, fontSize); err != nil {
-		return err
-	}
-	return nil
+	return dc.LoadFontFace(fontPath, fontSize)
 }
 
-func writeStrings(dc *gg.Context, table [][]string, colWidth, rowWidth, margin float64) {
-	numRows := len(table)
-	numCols := len(table[0])
-
-	for i := 0; i < numRows; i++ {
-		for j := 0; j < numCols; j++ {
-			setDrawingColor(dc, table[i][j])
-			text := stripANSI(table[i][j])
-			dc.DrawStringAnchored(text, float64(j*int(colWidth))+margin, float64(i*int(rowWidth))+margin, 0.5, 0.5)
-		}
-	}
-}
-
-func setDrawingColor(dc *gg.Context, text string) {
-	if strings.Contains(text, "\u001B[0;32m") {
-		// Set the drawing color to green
-		dc.SetRGB(0, 1, 0)
-	} else if strings.Contains(text, "\u001B[0;31m") {
-		// Set the drawing color to red
-		dc.SetRGB(1, 0, 0)
-	} else if strings.Contains(text, "\u001B[0;33m") {
-		// Set the drawing color to yellow
-		dc.SetRGB(1, 1, 0)
-	} else {
-		// Set the drawing color to white
-		dc.SetRGB(1, 1, 1)
-	}
-}
-
+// encodeToPNG encodes the image to a PNG format
 func encodeToPNG(dc *gg.Context, buf *bytes.Buffer) error {
-	err := png.Encode(buf, dc.Image())
+	return png.Encode(buf, dc.Image())
+}
+
+// downloadImage downloads an image from a URL
+func downloadImage(url string) (image.Image, error) {
+	resp, err := http.Get(url)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	defer resp.Body.Close()
+
+	img, _, err := image.Decode(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	return img, nil
 }
 
-// strip the ANSI color code (start and end)
-func stripANSI(text string) string {
-	text = strings.ReplaceAll(text, "\u001B[0;32m", "")
-	text = strings.ReplaceAll(text, "\u001B[0m", "")
-	text = strings.ReplaceAll(text, "\u001B[0;31m", "")
-	text = strings.ReplaceAll(text, "\u001B[0;33m", "")
-	return text
-}
+// resizeImage resizes the image to the specified width and height
+func resizeImage(img image.Image, width, height int) image.Image {
+	newImg := image.NewRGBA(image.Rect(0, 0, width, height))
+	ggCtx := gg.NewContextForRGBA(newImg)
+	ggCtx.Scale(float64(width)/float64(img.Bounds().Dx()), float64(height)/float64(img.Bounds().Dy()))
+	ggCtx.DrawImage(img, 0, 0)
 
-// RemoveNonNumeric removes all non numeric characters from a string
-func RemoveNonNumeric(text string) string {
-	return strings.Map(func(r rune) rune {
-		if r >= '0' && r <= '9' {
-			return r
-		}
-		return -1
-	}, text)
+	return newImg
 }
