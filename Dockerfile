@@ -31,6 +31,8 @@ RUN ./scripts/build.sh ${TARGETPLATFORM}
 #From gcr.io/distroless/static as final
 FROM alpine:latest AS final
 
+WORKDIR /app
+
 COPY --from=builder /app/bin/ol_discord_bot /app/bin/
 COPY --from=builder /usr/share/fonts/ /usr/share/fonts/
 

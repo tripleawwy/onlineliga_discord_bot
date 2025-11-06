@@ -4,3 +4,5 @@ services:
     environment:
       - DISCO_BOT_TOKEN=${DISCO_BOT_TOKEN:?error}
       - FONT_PATH=${FONT_PATH:?error}
+    volumes:
+      - ./schedules.yaml:/app/schedules.yaml:ro
