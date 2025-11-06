@@ -1,0 +1,39 @@
+# Markdownlint configuration
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+
+# Default state for all rules
+default: true
+
+# MD013 - Line length
+MD013:
+  # Allow longer lines for readability
+  line_length: 120
+  # Allow longer lines in code blocks and tables
+  code_blocks: false
+  tables: false
+
+# MD033 - Inline HTML
+MD033:
+  # Allow inline HTML for complex formatting
+  allowed_elements: ["br", "sub", "sup", "details", "summary"]
+
+# MD041 - First line in file should be a top-level heading
+MD041: false  # Allow flexibility in documentation structure
+
+# MD051 - Link fragments validation
+MD051: false  # Disable TOC link fragment validation
+
+# MD046 - Code block style
+MD046:
+  # Enforce fenced code blocks for consistency
+  style: fenced
+
+# MD049 - Emphasis style
+MD049:
+  # Use underscores for emphasis
+  style: underscore
+
+# MD050 - Strong style
+MD050:
+  # Use asterisks for strong emphasis
+  style: asterisk
