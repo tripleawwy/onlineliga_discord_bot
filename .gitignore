@@ -1,5 +1,9 @@
 .idea/
 .env
+.venv/
+.serena/
+.vscode/
+.claude/
 
 # Compiled files
 bin/**/*
