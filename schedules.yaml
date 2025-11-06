@@ -1,0 +1,51 @@
+# Scheduled Tasks Configuration
+# This file defines automated tasks for the Onlineliga Discord Bot
+
+schedules:
+  # Daily UK League Results
+  - name: "Daily UK League Results"
+    enabled: false
+    cron: "0 0 6 * * *"  # Every day at 6:00 AM UTC
+    channel_id: "YOUR_CHANNEL_ID_HERE"  # Replace with your Discord channel ID
+    command:
+      location: ".co.uk"
+      users: [2597, 77, 138, 5236, 8247]
+
+  # Example: German League Results (disabled by default)
+  # - name: "Daily German League Results"
+  #   enabled: false
+  #   cron: "0 7 * * *"  # Every day at 7:00 AM UTC
+  #   channel_id: "YOUR_CHANNEL_ID_HERE"
+  #   command:
+  #     location: ".de"
+  #     users: [1234, 5678]
+
+# Cron Expression Format:
+# ┌────────────── second (0-59) - optional
+# │ ┌──────────── minute (0-59)
+# │ │ ┌────────── hour (0-23)
+# │ │ │ ┌──────── day of month (1-31)
+# │ │ │ │ ┌────── month (1-12)
+# │ │ │ │ │ ┌──── day of week (0-6, Sunday=0)
+# │ │ │ │ │ │
+# * * * * * *
+
+# Common Examples:
+# "0 6 * * *"       - Every day at 6:00 AM
+# "0 */2 * * *"     - Every 2 hours
+# "30 9 * * 1-5"    - 9:30 AM on weekdays
+# "0 0 * * 0"       - Midnight every Sunday
+# "0 12 1 * *"      - Noon on the 1st of every month
+
+# Valid Locations:
+# - .de     (Germany: www.onlineliga.de)
+# - .co.uk  (UK: www.onlineleague.co.uk)
+# - .at     (Austria: www.onlineliga.at)
+# - .ch     (Switzerland: www.onlineliga.ch)
+
+# Configuration Notes:
+# 1. Replace YOUR_CHANNEL_ID_HERE with your actual Discord channel ID
+#    - Right-click channel in Discord → Copy ID (Developer Mode must be enabled)
+# 2. Times are in UTC timezone
+# 3. Set enabled: false to disable a schedule without deleting it
+# 4. User IDs are numeric values from Onlineliga

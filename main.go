@@ -1,15 +1,17 @@
 package main
 
 import (
-	"github.com/bwmarrin/discordgo"
-	"github.com/joho/godotenv"
-	"github.com/sirupsen/logrus"
-	"github.com/tripleawwy/onlineliga_discord_bot/internal/formatutils"
-	"github.com/tripleawwy/onlineliga_discord_bot/internal/scraper"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+
+	"github.com/bwmarrin/discordgo"
+	"github.com/joho/godotenv"
+	"github.com/sirupsen/logrus"
+	"github.com/tripleawwy/onlineliga_discord_bot/internal/formatutils"
+	"github.com/tripleawwy/onlineliga_discord_bot/internal/scheduler"
+	"github.com/tripleawwy/onlineliga_discord_bot/internal/scraper"
 )
 
 // Set up global logger
@@ -91,6 +93,24 @@ func main() {
 		}
 	}
 
+	// Initialize and start the scheduler
+	olScraper := scraper.NewScraper(logger)
+	taskScheduler := scheduler.New(discord, &olScraper, logger)
+
+	// Load schedules from config file (optional - only if file exists)
+	schedulesPath := os.Getenv("SCHEDULES_PATH")
+	if schedulesPath == "" {
+		schedulesPath = "schedules.yaml"
+	}
+
+	if _, err := os.Stat(schedulesPath); err == nil {
+		if err := taskScheduler.LoadAndStart(schedulesPath); err != nil {
+			logger.WithError(err).Warn("Failed to start scheduler, continuing without scheduled tasks")
+		}
+	} else {
+		logger.Info("No schedules.yaml found, scheduler disabled")
+	}
+
 	// Wait here until interrupted.
 	logger.Infoln("Bot is now running. Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
@@ -98,6 +118,8 @@ func main() {
 	<-sc
 
 	// Clean up resources.
+	logger.Info("Shutting down...")
+	taskScheduler.Stop()
 	err = discord.Close()
 	if err != nil {
 		logger.WithError(err).Fatal("Error closing connection")
@@ -135,7 +157,7 @@ func onInteractionCreate(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Margin:      28.0,
 			ColWidth:    150.0,
 			RowHeight:   28.0,
-			BadeWidth:   22.0,
+			BadgeWidth:  22.0,
 			BadgeHeight: 22.0,
 			R:           1.0,
 			G:           1.0,

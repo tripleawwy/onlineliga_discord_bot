@@ -16,7 +16,7 @@ type ImageConfig struct {
 	Margin      float64
 	ColWidth    float64
 	RowHeight   float64
-	BadeWidth   float64
+	BadgeWidth  float64
 	BadgeHeight float64
 	R           float64
 	G           float64
@@ -92,7 +92,7 @@ func drawBadge(dc *gg.Context, url string, x, y float64, config ImageConfig) {
 	}
 	x += config.ColWidth * 1 / 4
 	y += -13
-	badgeImg = resizeImage(badgeImg, int(config.BadeWidth), int(config.BadgeHeight))
+	badgeImg = resizeImage(badgeImg, int(config.BadgeWidth), int(config.BadgeHeight))
 	dc.DrawImage(badgeImg, int(x), int(y))
 }
 
