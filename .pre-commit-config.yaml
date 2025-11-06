@@ -1,0 +1,61 @@
+# Pre-commit hooks configuration
+# See https://pre-commit.com for more information
+
+repos:
+  # General file validation
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+      - id: detect-private-key
+
+  # Markdown formatting and linting
+  - repo: https://github.com/executablebooks/mdformat
+    rev: 0.7.22
+    hooks:
+      - id: mdformat
+        additional_dependencies: [mdformat-gfm, mdformat-tables]
+        files: ^.*\.md$
+
+  - repo: https://github.com/igorshubovych/markdownlint-cli
+    rev: v0.45.0
+    hooks:
+      - id: markdownlint
+        files: ^.*\.md$
+
+  # Go language linting and formatting
+  - repo: https://github.com/golangci/golangci-lint
+    rev: v1.62.2
+    hooks:
+      - id: golangci-lint
+        args: ["--fix"]
+
+  # Go formatting
+  - repo: https://github.com/tekwizely/pre-commit-golang
+    rev: v1.0.0-rc.1
+    hooks:
+      - id: go-fmt
+        args: ["-w"]
+      - id: go-mod-tidy
+
+# Configuration
+default_language_version:
+  python: python3
+
+# Fail fast on first error
+fail_fast: false
+
+# Skip certain files
+exclude: |
+  (?x)^(
+      go.sum|
+      .*_test.go
+  )$

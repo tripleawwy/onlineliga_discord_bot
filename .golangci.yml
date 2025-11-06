@@ -1,0 +1,116 @@
+# golangci-lint configuration
+# https://golangci-lint.run/usage/configuration/
+
+# This is the configuration file format version
+version: 2
+
+run:
+  timeout: 5m
+  tests: true
+  modules-download-mode: readonly
+
+linters:
+  enable:
+    # Default linters
+    - errcheck      # Check for unchecked errors
+    - gosimple      # Simplify code
+    - govet         # Vet examines Go source code
+    - ineffassign   # Detect ineffectual assignments
+    - staticcheck   # Go static analysis
+    - unused        # Check for unused constants, variables, functions and types
+
+    # Additional recommended linters
+    - gofmt         # Check whether code was gofmt-ed
+    - goimports     # Check import statements are formatted
+    - misspell      # Find commonly misspelled English words
+    - revive        # Fast, configurable, extensible linter
+    - unconvert     # Remove unnecessary type conversions
+    - unparam       # Report unused function parameters
+    - gosec         # Inspect source code for security problems
+    - gocritic      # Provides diagnostics that check for bugs, performance and style issues
+
+  disable:
+    - typecheck     # Can have issues with generated code
+
+linters-settings:
+  errcheck:
+    # Don't check for errors in defer statements
+    check-blank: false
+    check-type-assertions: false
+
+  govet:
+    # Report about shadowed variables
+    check-shadowing: false
+
+  gofmt:
+    # Simplify code
+    simplify: true
+
+  revive:
+    # Enable default rules
+    confidence: 0.8
+    rules:
+      - name: blank-imports
+      - name: context-as-argument
+      - name: dot-imports
+      - name: error-return
+      - name: error-strings
+      - name: error-naming
+      - name: exported
+      - name: if-return
+      - name: increment-decrement
+      - name: var-naming
+      - name: package-comments
+      - name: range
+      - name: receiver-naming
+      - name: indent-error-flow
+      - name: superfluous-else
+      - name: unreachable-code
+
+  gosec:
+    # Exclude some checks that are too strict
+    excludes:
+      - G104  # Audit errors not checked (covered by errcheck)
+      - G304  # File path provided as taint input (false positives)
+
+  gocritic:
+    # Enable multiple checks
+    enabled-tags:
+      - diagnostic
+      - style
+      - performance
+    disabled-checks:
+      - unnamedResult
+      - hugeParam
+
+issues:
+  # Maximum issues count per one linter
+  max-issues-per-linter: 50
+
+  # Maximum count of issues with the same text
+  max-same-issues: 3
+
+  # Exclude certain paths
+  exclude-rules:
+    # Exclude test files from certain linters
+    - path: _test\.go
+      linters:
+        - errcheck
+        - gosec
+        - unparam
+
+    # Exclude generated files
+    - path: ".*\\.gen\\.go"
+      linters:
+        - all
+
+  # Show all issues
+  exclude-use-default: false
+
+output:
+  # Formats: colored-line-number|line-number|json|tab|checkstyle|code-climate
+  formats:
+    - format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+  sort-results: true
